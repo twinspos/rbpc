@@ -3173,7 +3173,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncAuto()
  }
  const relayURL=()=>cfg.relay.replace(/\/+$/,'');
 /* ---- printer USB (aplikasi PC): byte ESC/POS dikirim langsung ke printer Windows, tanpa dialog cetak ---- */
-const usbOK=()=>{const n=nat();return !!(n&&n.usbList&&n.usbSend)};
+function usbOK(){const n=nat();return !!(n&&n.usbList&&n.usbSend)}
 async function usbSend(role,txt,copies){
  const c=cfg.roles[role]||{};
  if(!c.usb)throw new Error('printer USB belum dipilih');
