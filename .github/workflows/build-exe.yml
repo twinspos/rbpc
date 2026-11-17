@@ -1,0 +1,43 @@
+name: Build EXE (PC Windows)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Salin file POS ke folder www
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force www | Out-Null
+          foreach ($f in @('index.html','config.js','pelanggan.js','manifest.webmanifest','icon-192.png','icon-512.png')) {
+            if (Test-Path $f) { Copy-Item $f www/ }
+          }
+          foreach ($f in @('index.html','config.js','pelanggan.js','main.js','preload.js','package.json','icon.ico','rawprint.cs')) {
+            if (-not (Test-Path $f)) { throw "File $f belum ada di repo (cek nama file, jangan ada (1) atau (3))" }
+          }
+
+      - name: Buat rawprint.exe (cetak USB)
+        shell: pwsh
+        run: |
+          & "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /optimize /target:exe /out:rawprint.exe rawprint.cs
+          if (-not (Test-Path rawprint.exe)) { throw 'rawprint.exe gagal dibuat' }
+
+      - name: Build EXE
+        shell: pwsh
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder --win --x64 --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RB-POS-PC
+          path: dist/*.exe
+          retention-days: 14
