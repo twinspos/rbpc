@@ -957,7 +957,7 @@ function renderPosLeft(el){
   el.innerHTML=`<div id="promo"></div><div class="vtop"><h3 style="flex:1;margin:0">Denah Meja</h3>${pmSeg()}</div><div class="grid tg" id="tblv" style="margin-top:12px">${tablesHTML()}</div>`;
   renderPromo();return;
  }
- el.innerHTML=`<div id="promo"></div><div class="vtop"><div class="sbox">${ic('search',18)}<input id="q" placeholder="Cari ban, ukuran, atau scan barcode…" oninput="S.q=this.value;renderGrid()" onkeydown="if(event.key==='Enter')scanEnter()" autocomplete="off"></div></div><div class="chips" id="cats"></div><div class="grid" id="grid"></div>`;
+ el.innerHTML=`<div id="promo"></div><div class="vtop"><div class="sbox">${ic('search',18)}<input id="q" placeholder="Cari ban, ukuran, atau scan barcode…" oninput="S.q=this.value;clearTimeout(window.QT);window.QT=setTimeout(renderGrid,150)" onkeydown="if(event.key==='Enter')scanEnter()" autocomplete="off"></div></div><div class="chips" id="cats"></div><div class="grid" id="grid"></div>`;
  
  $('#q').value=S.q;renderPromo();renderCats();renderGrid();
 }
@@ -997,13 +997,33 @@ function renderGrid(){
  const q=S.q.trim().toLowerCase();
  const list=db.products.filter(p=>!p.bahan&&p.active!==false&&(S.cat==='Semua'||p.cat===S.cat)&&(!q||p.name.toLowerCase().includes(q)||bcOf(p).includes(q)||String(p.cat||'').toLowerCase().includes(q)));
  el.className='rlist';
- el.innerHTML=list.length?list.map(p=>{
-  const n=sum(S.cart.filter(x=>x.pid===p.id),x=>x.qty),pk=pkIs(p);
+ const key=S.cat+'|'+q+'|'+list.length,G=window.GRDV||(window.GRDV={n:0,key:''});
+ if(G.key!==key){G.key=key;G.n=GRD_STEP;if(el.parentNode&&el.parentNode.scrollTop)el.parentNode.scrollTop=0}
+ const QM={};S.cart.forEach(x=>{QM[x.pid]=(QM[x.pid]||0)+(+x.qty||0)});
+ G.list=list;G.QM=QM;
+ el.innerHTML=list.length?list.slice(0,G.n).map(grdRow).join('')+(list.length>G.n?'<div id="grdMore" class="mut" style="padding:14px;text-align:center">Memuat…</div>':''):'<div class="empty">Produk tidak ditemukan</div>';
+ grdWatch();
+}
+const GRD_STEP=60;
+function grdWatch(){
+ const m=document.getElementById('grdMore');if(!m)return;
+ if(!('IntersectionObserver' in window)){m.outerHTML='';return}
+ if(window.GRDIO)window.GRDIO.disconnect();
+ window.GRDIO=new IntersectionObserver(es=>{if(es.some(e=>e.isIntersecting))grdMore()},{rootMargin:'600px'});
+ window.GRDIO.observe(m);
+}
+function grdMore(){
+ const G=window.GRDV,el=$('#grid'),m=document.getElementById('grdMore');if(!G||!el||!m)return;
+ const a=G.n;G.n+=GRD_STEP*2;
+ m.insertAdjacentHTML('beforebegin',G.list.slice(a,G.n).map(grdRow).join(''));
+ if(G.n>=G.list.length){window.GRDIO&&window.GRDIO.disconnect();m.remove()}
+}
+function grdRow(p){
+  const n=(window.GRDV&&window.GRDV.QM[p.id])||0,pk=pkIs(p);
   const out=pk?pkAvail(p)<=0:(!p.notrack&&p.stock<=0),low=!pk&&!p.notrack&&(+p.minStock>0&&p.stock<=+p.minStock);
   const st=pk?(out?'Habis':'Paket'):p.notrack?'':out?'Habis':'Stok '+fq(p.stock);
   const sub=[p.cat,bcOf(p)].filter(Boolean).map(esc).join(' · ')+(optInfo(p)?' · '+optInfo(p):'');
-  return `<button class="rrow ${n>0?'sel':''} ${out?'out':''}" onclick="addProduct('${p.id}')"><span class="rav">${p.photo?`<img src="${p.photo}" alt="">`:esc(ini(p.name))}</span><span class="rmain"><b>${esc(p.name)}</b><small>${sub}</small></span><span class="rstk ${out||low?'low':''}">${st}</span><span class="rprice">${rp(p.price)}<small>/${esc(p.unit)}</small></span>${n>0?`<span class="rq">${fq(n)}</span>`:''}</button>`}).join(''):'<div class="empty">Produk tidak ditemukan</div>';
-}
+  return `<button class="rrow ${n>0?'sel':''} ${out?'out':''}" onclick="addProduct('${p.id}')"><span class="rav">${p.photo?`<img src="${p.photo}" alt="">`:esc(ini(p.name))}</span><span class="rmain"><b>${esc(p.name)}</b><small>${sub}</small></span><span class="rstk ${out||low?'low':''}">${st}</span><span class="rprice">${rp(p.price)}<small>/${esc(p.unit)}</small></span>${n>0?`<span class="rq">${fq(n)}</span>`:''}</button>`}
 function scanEnter(){
  const q=S.q.trim();if(!q)return;
  const p=db.products.find(x=>p0ok(x)&&bcOf(x)===q);
